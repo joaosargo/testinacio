@@ -21,6 +21,17 @@ test("centers the label with flexbox", () => {
   assert.match(html, /justify-content:\s*center/);
 });
 
+// req-red-text: the Hello World label renders in red. Regression guard for the
+// bugfix that changed .hello-label color from #222222 to red.
+test("renders the Hello World label in red", () => {
+  const labelRule = html.match(/\.hello-label\s*\{[^}]*\}/);
+  assert.ok(labelRule, "expected a .hello-label CSS rule");
+  assert.match(
+    labelRule[0],
+    /color:\s*(#ff0000|#f00|red|rgb\(\s*255\s*,\s*0\s*,\s*0\s*\))/i,
+  );
+});
+
 // req-self-contained-static / nfr-browser-portability: single self-contained file,
 // no external scripts or stylesheets so it opens directly via file://.
 test("is a self-contained static file with no external sub-resources", () => {
