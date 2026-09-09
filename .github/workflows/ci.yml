@@ -1,0 +1,58 @@
+name: CI
+
+# CI pipeline for the unit-static-page "Hello World" deliverable.
+# Scope: mvp. The deliverable is a single self-contained static HTML5 file
+# (per dec-static-html-only) with no backend and no service tier
+# (per dec-no-services), so the pipeline is deliberately proportionate:
+# validate + test only, no build/package/publish stage.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# Prevent redundant runs on rapid pushes to the same ref.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  validate-and-test:
+    name: Validate & Test (static HTML)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # There is no build step: the deliverable is a static HTML file that
+      # runs by opening directly in a browser (nfr-browser-portability).
+      # "Build" here is a structural presence check only.
+      - name: Verify deliverable presence (GATE: build)
+        run: |
+          test -f index.html || { echo "::error::index.html is missing"; exit 1; }
+          echo "index.html present ($(wc -c < index.html) bytes)"
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      # Unit tests use Node's built-in test runner (no dependencies,
+      # honoring the no-build-step constraint dec-static-html-only).
+      - name: Unit tests (GATE: unit-test)
+        run: node --test
+
+      # Lightweight static validation of the single HTML file: reject
+      # external sub-resources so the self-contained invariant
+      # (req-self-contained-static) cannot silently regress.
+      - name: HTML self-containment check (GATE: static-analysis)
+        run: |
+          if grep -Eiq '<script\b|<link\b[^>]*rel=["'\'']?stylesheet|src[[:space:]]*=[[:space:]]*["'\'']https?:' index.html; then
+            echo "::error::index.html references external sub-resources; it must stay self-contained (req-self-contained-static)"
+            exit 1
+          fi
+          echo "index.html is self-contained"
